@@ -378,6 +378,8 @@ void Tuner::PrintJSON(const std::string &filename,
     fprintf(file, "    {\n");
     fprintf(file, "      \"kernel\": \"%s\",\n", result.kernel_name.c_str());
     fprintf(file, "      \"time\": %.3lf,\n", result.time);
+    fprintf(file, "      \"time_avg\": %.3lf,\n", result.time_avg);
+    fprintf(file, "      \"time_stddev\": %.3lf,\n", result.time_stddev);
 
     // Loops over all the parameters for this result
     fprintf(file, "      \"parameters\": {");

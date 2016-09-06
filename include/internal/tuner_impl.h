@@ -100,6 +100,8 @@ class TunerImpl {
   struct TunerResult {
     std::string kernel_name;
     float time;
+    float time_avg;
+    float time_stddev;
     size_t threads;
     bool status;
     KernelInfo::Configuration configuration;

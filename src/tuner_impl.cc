@@ -338,7 +338,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
     // Multiple runs of the kernel to find the minimum execution time
     fprintf(stdout, "%s Running %s\n", kMessageRun.c_str(), kernel.name().c_str());
     auto events = std::vector<Event>(num_runs_);
-    auto elapsed_time = std::numeric_limits<float>::max();
+    auto elapsed_times = std::vector<float>();
     for (auto t=size_t{0}; t<num_runs_; ++t) {
       #ifdef VERBOSE
         fprintf(stdout, "%s Launching kernel (%zu out of %zu for averaging)\n", kMessageVerbose.c_str(),
@@ -356,19 +356,55 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
       #ifdef VERBOSE
         fprintf(stdout, "%s Completed kernel in %.2lf ms\n", kMessageVerbose.c_str(), cpu_timing);
       #endif
-      elapsed_time = std::min(elapsed_time, cpu_timing);
+      elapsed_times.push_back(cpu_timing);
     }
     queue_.Finish();
 
+    // Calculates the mean and standard deviation if we did more than one run
+    auto elapsed_time = std::numeric_limits<float>::max(),
+         elapsed_time_avg = float{0},
+         elapsed_time_stddev = float{0};
+
+    if (num_runs_ > 1) {
+      for (auto t=size_t{0}; t<num_runs_; ++t) {
+        elapsed_time_avg += elapsed_times[t];
+      }
+      elapsed_time_avg /= num_runs_;
+
+      for (auto t=size_t{0}; t<num_runs_; ++t) {
+        auto difference = elapsed_time_avg - elapsed_times[t];
+        elapsed_time_stddev += difference*difference;
+      }
+      elapsed_time_stddev = std::sqrt(elapsed_time_stddev / (num_runs_-1));
+    } else {
+      elapsed_time_avg = elapsed_time;
+    }
+
+    // Finally, finds the minimum execution time, throwing away outliers
+    for (auto t=size_t{0}; t<num_runs_; ++t) {
+      if (num_runs_ > 1 &&
+          ((elapsed_times[t] < elapsed_time_avg - 3 * elapsed_time_stddev) ||
+           (elapsed_times[t] > elapsed_time_avg + 3 * elapsed_time_stddev))) {
+#ifdef VERBOSE
+        fprintf(stdout, "%s Discarding result %zu: %.2lf ms is too far from mean %.2lf ± %.2lf ms\n",
+                kMessageVerbose.c_str(), t + 1, elapsed_times[t], elapsed_time_avg, elapsed_time_stddev);
+#endif
+        continue;
+      }
+
+      elapsed_time = std::min(elapsed_time, elapsed_times[t]);
+    }
+
     // Prints diagnostic information
-    fprintf(stdout, "%s Completed %s (%.1lf ms) - %zu out of %zu\n",
+    fprintf(stdout, "%s Completed %s (best %.2lf ms + %.2lf ms = avg %.2lf ± %.2lf ms) - %zu out of %zu\n",
             kMessageOK.c_str(), kernel.name().c_str(), elapsed_time,
+            elapsed_time_avg - elapsed_time, elapsed_time_avg, elapsed_time_stddev,
             configuration_id+1, num_configurations);
 
     // Computes the result of the tuning
     auto local_threads = size_t{1};
     for (auto &item: local) { local_threads *= item; }
-    TunerResult result = {kernel.name(), elapsed_time, local_threads, false, {}};
+    TunerResult result = {kernel.name(), elapsed_time, elapsed_time_avg, elapsed_time_stddev, local_threads, false, {}};
     return result;
   }
 
@@ -637,7 +673,8 @@ void TunerImpl::ModelPrediction(const Model model_type, const float validation_f
 // Prints a result by looping over all its configuration parameters
 void TunerImpl::PrintResult(FILE* fp, const TunerResult &result, const std::string &message) const {
   fprintf(fp, "%s %s; ", message.c_str(), result.kernel_name.c_str());
-  fprintf(fp, "%8.1lf ms;", result.time);
+  fprintf(fp, "best %8.2lf ms + %8.2lf ms = avg %8.2lf ± %8.2lf ms);",
+          result.time, result.time_avg - result.time, result.time_avg, result.time_stddev);
   for (auto &setting: result.configuration) {
     fprintf(fp, "%9s;", setting.GetConfig().c_str());
   }
