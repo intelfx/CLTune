@@ -93,7 +93,7 @@ Output
 Outputs the search process to the file `filename`.
 
 * `double PrintToScreen() const`:
-Prints the results of the tuning to screen (stdout). Returns the best-case execution time in milliseconds.
+Prints the results of the tuning to screen (stderr). Returns the best-case execution time in milliseconds.
 
 * `void PrintFormatted() const`:
 Prints the results of the tuning to screen as a formatted table (stdout).
@@ -105,4 +105,4 @@ Prints the results of the tuning to the file `filename` in JSON format. Addition
 Prints the results of the tuning to the file `filename` in plain text format.
 
 * `void SuppressOutput()`:
-Disables all further printing to screen (stdout).
+Disables all further printing to screen (stderr).

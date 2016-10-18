@@ -140,7 +140,7 @@ class Tuner {
   void PUBLIC_API ModelPrediction(const Model model_type, const float validation_fraction,
                                   const size_t test_top_x_configurations);
 
-  // Prints the results of the tuning either to screen (stdout) or to a specific output-file.
+  // Prints the results of the tuning either to screen (stderr/stdout) or to a specific output-file.
   // Returns the execution time in miliseconds.
   double PUBLIC_API PrintToScreen() const;
   void PUBLIC_API PrintFormatted() const;
@@ -148,7 +148,7 @@ class Tuner {
                             const std::vector<std::pair<std::string,std::string>> &descriptions) const;
   void PUBLIC_API PrintToFile(const std::string &filename) const;
 
-  // Disables all further printing to stdout
+  // Disables all further printing to stderr
   void PUBLIC_API SuppressOutput();
 
   // Changes the number of times each kernel should be run. Used for averaging execution times.

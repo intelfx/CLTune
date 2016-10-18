@@ -284,7 +284,7 @@ void Tuner::ModelPrediction(const Model model_type, const float validation_fract
 // =================================================================================================
 
 // Iterates over all tuning results and prints each parameter configuration and the corresponding
-// timing-results. Printing is to stdout.
+// timing-results. Printing is to stderr.
 double Tuner::PrintToScreen() const {
 
   // Finds the best result
@@ -304,14 +304,14 @@ double Tuner::PrintToScreen() const {
   }
 
   // Prints all valid results and the one with the lowest execution time
-  pimpl->PrintHeader("Printing results to stdout");
+  pimpl->PrintHeader("Printing results to stderr");
   for (auto &tuning_result: pimpl->tuning_results_) {
     if (tuning_result.status && tuning_result.time != std::numeric_limits<double>::max()) {
-      pimpl->PrintResult(stdout, tuning_result, pimpl->kMessageResult);
+      pimpl->PrintResult(stderr, tuning_result, pimpl->kMessageResult);
     }
   }
-  pimpl->PrintHeader("Printing best result to stdout");
-  pimpl->PrintResult(stdout, best_result, pimpl->kMessageBest);
+  pimpl->PrintHeader("Printing best result to stderr");
+  pimpl->PrintResult(stderr, best_result, pimpl->kMessageBest);
 
   // Return the best time
   return best_time;
@@ -333,6 +333,11 @@ void Tuner::PrintFormatted() const {
   // Prints the best result in C++ database format
   auto count = size_t{0};
   pimpl->PrintHeader("Printing best result in database format to stdout");
+
+  fprintf(stdout, "/* %s: %s */\n",
+          best_result.kernel_name.c_str(),
+          best_result.GetTiming().c_str());
+
   fprintf(stdout, "{ \"%s\", { ", pimpl->device().Name().c_str());
   for (auto &setting: best_result.configuration) {
     fprintf(stdout, "%s", setting.GetDatabase().c_str());

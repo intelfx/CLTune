@@ -53,7 +53,7 @@ namespace cltune {
 // This is the threshold for 'correctness'
 const double TunerImpl::kMaxL2Norm = 1e-4;
 
-// Messages printed to stdout (in colours)
+// Messages printed to stderr (in colours)
 const std::string TunerImpl::kMessageFull    = "\x1b[32m[==========]\x1b[0m";
 const std::string TunerImpl::kMessageHead    = "\x1b[32m[----------]\x1b[0m";
 const std::string TunerImpl::kMessageRun     = "\x1b[32m[ RUN      ]\x1b[0m";
@@ -82,10 +82,10 @@ TunerImpl::TunerImpl():
     search_args_(0),
     argument_counter_(0) {
   if (!suppress_output_) {
-    fprintf(stdout, "\n%s Initializing on platform 0 device 0\n", kMessageFull.c_str());
+    fprintf(stderr, "\n%s Initializing on platform 0 device 0\n", kMessageFull.c_str());
     auto opencl_version = device_.Version();
     auto device_name = device_.Name();
-    fprintf(stdout, "%s Device name: '%s' (%s)\n", kMessageFull.c_str(),
+    fprintf(stderr, "%s Device name: '%s' (%s)\n", kMessageFull.c_str(),
             device_name.c_str(), opencl_version.c_str());
   }
 }
@@ -105,11 +105,11 @@ TunerImpl::TunerImpl(size_t platform_id, size_t device_id):
     search_args_(0),
     argument_counter_(0) {
   if (!suppress_output_) {
-    fprintf(stdout, "\n%s Initializing on platform %zu device %zu\n",
+    fprintf(stderr, "\n%s Initializing on platform %zu device %zu\n",
             kMessageFull.c_str(), platform_id, device_id);
     auto opencl_version = device_.Version();
     auto device_name = device_.Name();
-    fprintf(stdout, "%s Device name: '%s' (%s)\n", kMessageFull.c_str(),
+    fprintf(stderr, "%s Device name: '%s' (%s)\n", kMessageFull.c_str(),
             device_name.c_str(), opencl_version.c_str());
   }
 }
@@ -133,7 +133,7 @@ TunerImpl::~TunerImpl() {
   for (auto &mem_argument: arguments_output_copy_) { free_buffers(mem_argument); }
 
   if (!suppress_output_) {
-    fprintf(stdout, "\n%s End of the tuning process\n\n", kMessageFull.c_str());
+    fprintf(stderr, "\n%s End of the tuning process\n\n", kMessageFull.c_str());
   }
 }
 
@@ -171,7 +171,7 @@ void TunerImpl::Tune() {
 
       // Computes the permutations of all parameters and pass them to a (smart) search algorithm
       #ifdef VERBOSE
-        fprintf(stdout, "%s Computing the permutations of all parameters\n", kMessageVerbose.c_str());
+        fprintf(stderr, "%s Computing the permutations of all parameters\n", kMessageVerbose.c_str());
       #endif
       kernel.SetConfigurations();
 
@@ -197,7 +197,7 @@ void TunerImpl::Tune() {
       // Iterates over all possible configurations (the permutations of the tuning parameters)
       for (auto p=size_t{0}; p<search->NumConfigurations(); ++p) {
         #ifdef VERBOSE
-          fprintf(stdout, "%s Exploring configuration (%zu out of %zu)\n", kMessageVerbose.c_str(),
+          fprintf(stderr, "%s Exploring configuration (%zu out of %zu)\n", kMessageVerbose.c_str(),
                   p + 1, search->NumConfigurations());
         #endif
         auto permutation = search->GetConfiguration();
@@ -223,11 +223,11 @@ void TunerImpl::Tune() {
         // Stores the parameters and the timing-result
         tuning_result.configuration = permutation;
         if (tuning_result.time == std::numeric_limits<float>::max()) {
-          PrintResult(stdout, tuning_result, kMessageFailure);
+          PrintResult(stderr, tuning_result, kMessageFailure);
           tuning_result.status = false;
         }
         else if (!tuning_result.status) {
-          PrintResult(stdout, tuning_result, kMessageWarning);
+          PrintResult(stderr, tuning_result, kMessageWarning);
         }
         tuning_results_.push_back(tuning_result);
       }
@@ -254,7 +254,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
   // In case of an exception, skip this run
   try {
     #ifdef VERBOSE
-      fprintf(stdout, "%s Starting compilation\n", kMessageVerbose.c_str());
+      fprintf(stderr, "%s Starting compilation\n", kMessageVerbose.c_str());
     #endif
 
      // Sets the build options from an environmental variable (if set)
@@ -269,14 +269,14 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
     auto build_status = program.Build(device_, options);
     if (build_status == BuildStatus::kError) {
       auto message = program.GetBuildInfo(device_);
-      fprintf(stdout, "device compiler error/warning: %s\n", message.c_str());
+      fprintf(stderr, "device compiler error/warning: %s\n", message.c_str());
       throw std::runtime_error("device compiler error/warning occurred ^^\n");
     }
     if (build_status == BuildStatus::kInvalid) {
       throw std::runtime_error("Invalid program binary");
     }
     #ifdef VERBOSE
-      fprintf(stdout, "%s Finished compilation\n", kMessageVerbose.c_str());
+      fprintf(stderr, "%s Finished compilation\n", kMessageVerbose.c_str());
     #endif
 
     // Clears all previous copies of output buffer(s)
@@ -291,7 +291,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
 
     // Creates a copy of the output buffer(s)
     #ifdef VERBOSE
-      fprintf(stdout, "%s Creating a copy of the output buffer\n", kMessageVerbose.c_str());
+      fprintf(stderr, "%s Creating a copy of the output buffer\n", kMessageVerbose.c_str());
     #endif
     for (auto &output: arguments_output_) {
       switch (output.type) {
@@ -309,7 +309,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
 
     // Sets the kernel and its arguments
     #ifdef VERBOSE
-      fprintf(stdout, "%s Setting kernel arguments\n", kMessageVerbose.c_str());
+      fprintf(stderr, "%s Setting kernel arguments\n", kMessageVerbose.c_str());
     #endif
     auto tune_kernel = Kernel(program, kernel.name());
     for (auto &i: arguments_input_) { tune_kernel.SetArgument(i.index, i.buffer); }
@@ -335,12 +335,12 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
     queue_.Finish();
 
     // Multiple runs of the kernel to find the minimum execution time
-    fprintf(stdout, "%s Running %s\n", kMessageRun.c_str(), kernel.name().c_str());
+    fprintf(stderr, "%s Running %s\n", kMessageRun.c_str(), kernel.name().c_str());
     auto events = std::vector<Event>(num_runs_);
     auto elapsed_times = std::vector<float>();
     for (auto t=size_t{0}; t<num_runs_; ++t) {
       #ifdef VERBOSE
-        fprintf(stdout, "%s Launching kernel (%zu out of %zu for averaging)\n", kMessageVerbose.c_str(),
+        fprintf(stderr, "%s Launching kernel (%zu out of %zu for averaging)\n", kMessageVerbose.c_str(),
                 t + 1, num_runs_);
       #endif
       const auto start_time = std::chrono::steady_clock::now();
@@ -353,7 +353,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
       const auto cpu_timer = std::chrono::steady_clock::now() - start_time;
       const auto cpu_timing = std::chrono::duration<float,std::milli>(cpu_timer).count();
       #ifdef VERBOSE
-        fprintf(stdout, "%s Completed kernel in %.2lf ms\n", kMessageVerbose.c_str(), cpu_timing);
+        fprintf(stderr, "%s Completed kernel in %.2lf ms\n", kMessageVerbose.c_str(), cpu_timing);
       #endif
       elapsed_times.push_back(cpu_timing);
     }
@@ -385,7 +385,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
           ((elapsed_times[t] < elapsed_time_avg - 3 * elapsed_time_stddev) ||
            (elapsed_times[t] > elapsed_time_avg + 3 * elapsed_time_stddev))) {
 #ifdef VERBOSE
-        fprintf(stdout, "%s Discarding result %zu: %.2lf ms is too far from mean %.2lf ± %.2lf ms\n",
+        fprintf(stderr, "%s Discarding result %zu: %.2lf ms is too far from mean %.2lf ± %.2lf ms\n",
                 kMessageVerbose.c_str(), t + 1, elapsed_times[t], elapsed_time_avg, elapsed_time_stddev);
 #endif
         continue;
@@ -400,7 +400,7 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
     TunerResult result = {kernel.name(), elapsed_time, elapsed_time_avg, elapsed_time_stddev, local_threads, false, {}};
 
     // Prints diagnostic information
-    fprintf(stdout, "%s Completed %s (%s) - %zu out of %zu\n",
+    fprintf(stderr, "%s Completed %s (%s) - %zu out of %zu\n",
             kMessageOK.c_str(), kernel.name().c_str(),
             result.GetTiming().c_str(),
             configuration_id+1, num_configurations);
@@ -410,8 +410,8 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
 
   // There was an exception, now return an invalid tuner results
   catch(std::exception& e) {
-    fprintf(stdout, "%s Kernel %s failed\n", kMessageFailure.c_str(), kernel.name().c_str());
-    fprintf(stdout, "%s   catched exception: %s\n", kMessageFailure.c_str(), e.what());
+    fprintf(stderr, "%s Kernel %s failed\n", kMessageFailure.c_str(), kernel.name().c_str());
+    fprintf(stderr, "%s   catched exception: %s\n", kMessageFailure.c_str(), e.what());
     TunerResult result = {kernel.name(), std::numeric_limits<float>::max(), 0, false, {}};
     return result;
   }
@@ -573,7 +573,7 @@ void TunerImpl::ModelPrediction(const Model model_type, const float validation_f
       auto learning_iterations = size_t{800}; // For gradient descent
       auto learning_rate = 0.05f; // For gradient descent
       auto lambda = 0.2f; // Regularization parameter
-      auto debug_display = true; // Output learned data to stdout
+      auto debug_display = true; // Output learned data to stderr
 
       // Trains and validates the model
       model = std::unique_ptr<MLModel<float>>(
@@ -658,11 +658,11 @@ void TunerImpl::ModelPrediction(const Model model_type, const float validation_f
       tuning_results_.push_back(tuning_result);
       if (tuning_result.time == std::numeric_limits<float>::max()) {
         tuning_result.time = 0.0;
-        PrintResult(stdout, tuning_result, kMessageFailure);
+        PrintResult(stderr, tuning_result, kMessageFailure);
         tuning_result.time = std::numeric_limits<float>::max();
       }
       else if (!tuning_result.status) {
-        PrintResult(stdout, tuning_result, kMessageWarning);
+        PrintResult(stderr, tuning_result, kMessageWarning);
       }
     }
   }
@@ -716,7 +716,7 @@ std::string TunerImpl::LoadFile(const std::string &filename) {
 // Converts a C++ string to a C string and print it out with nice formatting
 void TunerImpl::PrintHeader(const std::string &header_name) const {
   if (!suppress_output_) {
-    fprintf(stdout, "\n%s %s\n", kMessageHead.c_str(), header_name.c_str());
+    fprintf(stderr, "\n%s %s\n", kMessageHead.c_str(), header_name.c_str());
   }
 }
 

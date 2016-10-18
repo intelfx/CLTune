@@ -76,7 +76,7 @@ class TunerImpl {
   // Parameters
   static const double kMaxL2Norm; // This is the threshold for 'correctness'
 
-  // Messages printed to stdout (in colours)
+  // Messages printed to stderr (in colours)
   static const std::string kMessageFull;
   static const std::string kMessageHead;
   static const std::string kMessageRun;
