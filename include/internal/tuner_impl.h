@@ -105,6 +105,8 @@ class TunerImpl {
     size_t threads;
     bool status;
     KernelInfo::Configuration configuration;
+
+    std::string GetTiming() const;
   };
 
   // Initialize either with platform 0 and device 0 or with a custom platform/device

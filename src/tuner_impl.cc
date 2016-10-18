@@ -45,6 +45,7 @@
 #include <memory> // std::unique_ptr
 #include <tuple> // std::tuple
 #include <cstdlib> // std::getenv
+#include <cstring> // std::strlen
 
 namespace cltune {
 // =================================================================================================
@@ -222,9 +223,7 @@ void TunerImpl::Tune() {
         // Stores the parameters and the timing-result
         tuning_result.configuration = permutation;
         if (tuning_result.time == std::numeric_limits<float>::max()) {
-          tuning_result.time = 0.0;
           PrintResult(stdout, tuning_result, kMessageFailure);
-          tuning_result.time = std::numeric_limits<float>::max();
           tuning_result.status = false;
         }
         else if (!tuning_result.status) {
@@ -395,16 +394,17 @@ TunerImpl::TunerResult TunerImpl::RunKernel(const std::string &source, const Ker
       elapsed_time = std::min(elapsed_time, elapsed_times[t]);
     }
 
-    // Prints diagnostic information
-    fprintf(stdout, "%s Completed %s (best %.2lf ms + %.2lf ms = avg %.2lf ± %.2lf ms) - %zu out of %zu\n",
-            kMessageOK.c_str(), kernel.name().c_str(), elapsed_time,
-            elapsed_time_avg - elapsed_time, elapsed_time_avg, elapsed_time_stddev,
-            configuration_id+1, num_configurations);
-
     // Computes the result of the tuning
     auto local_threads = size_t{1};
     for (auto &item: local) { local_threads *= item; }
     TunerResult result = {kernel.name(), elapsed_time, elapsed_time_avg, elapsed_time_stddev, local_threads, false, {}};
+
+    // Prints diagnostic information
+    fprintf(stdout, "%s Completed %s (%s) - %zu out of %zu\n",
+            kMessageOK.c_str(), kernel.name().c_str(),
+            result.GetTiming().c_str(),
+            configuration_id+1, num_configurations);
+
     return result;
   }
 
@@ -670,11 +670,30 @@ void TunerImpl::ModelPrediction(const Model model_type, const float validation_f
 
 // =================================================================================================
 
+// Returns a string with human-readable timing information of a particular kernel run
+std::string TunerImpl::TunerResult::GetTiming() const {
+  std::string result;
+
+  if (time != std::numeric_limits<float>::max()) {
+    // oh woes of C stdio...
+    result.resize(256);
+    snprintf(&result.front(), result.size(),
+             "best %8.2lf ms + %8.2lf ms = avg %8.2lf ± %8.2lf ms",
+             time, time_avg - time, time_avg, time_stddev);
+    result.resize(std::strlen(result.data()));
+  } else {
+    result = "no result";
+  }
+
+  return result;
+}
+
+// =================================================================================================
+
 // Prints a result by looping over all its configuration parameters
 void TunerImpl::PrintResult(FILE* fp, const TunerResult &result, const std::string &message) const {
   fprintf(fp, "%s %s; ", message.c_str(), result.kernel_name.c_str());
-  fprintf(fp, "best %8.2lf ms + %8.2lf ms = avg %8.2lf ± %8.2lf ms);",
-          result.time, result.time_avg - result.time, result.time_avg, result.time_stddev);
+  fprintf(fp, "%s;", result.GetTiming().c_str());
   for (auto &setting: result.configuration) {
     fprintf(fp, "%9s;", setting.GetConfig().c_str());
   }
